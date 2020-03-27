@@ -10,10 +10,15 @@ const prefix = '+';
 const delimiter = ':';
 
 const msgSuccess = ":ok_hand_tone1:";
+const msgHelp = "``` 4 commandes sont disponibles \n- " + prefix + "create <nom channel> \n- " + prefix + "remove <nom channel> \n- " + prefix + "add <nom channel> <nb de points> \n- " + prefix + "less <nom channel> <nb de points>" + " ```";
 const msgErrorCommande = "La commande n'a pas été reconnue";
+const msgErrorUnique = ":warning: Le nom de ce channel existe déjà";
+const msgErrorNumberFormat = ":warning: Veuillez saisir un chiffre valide";
+const msgErrorChannelNotFound = ":warning: Channel introuvable";
 
 bot.on('ready', function () {
-    console.log("Goboue Bot connecté");
+    bot.user.setActivity(prefix + "help");
+    console.log("Scoromatique Bot ready");
 })
 
 bot.on('message', msg => {
@@ -24,39 +29,35 @@ bot.on('message', msg => {
     processMsg(msg.content).then(parsedMsg => {
         switch (parsedMsg[0]) {
             case 'create':
+                // <prefix>create <channel name>
                 channelNameIsUnique(parsedMsg[1]).then(data => {
                     if (data) {
                         createChannel(msg.guild, parsedMsg[1]);
                         msg.channel.send(msgSuccess)
                     } else
-                        msg.channel.send(":warning: Le nom de ce channel existe déjà");
+                        msg.channel.send(msgErrorUnique);
                 });
 
                 break;
             case 'add':
                 // <prefix>add <channel name> <nb points>
-                findChannelByName(parsedMsg[1]).then(data => {
-                    if (data !== null) {
-                        if (isNaN(parseInt(parsedMsg[2]))) {
-                            msg.channel.send(":warning: Veuillez saisir un chiffre valide");
-                            return;
-                        }
-
-                        var channel = msg.guild.channels.find(c => c.id === data.id);
-                        channel.setName(data.name + delimiter + " " + parseInt(getOldScore(channel.name) + parseInt(parsedMsg[2])) + " pts");
-                        msg.channel.send(msgSuccess)
-                    } else {
-                        msg.channel.send(":warning: Channel introuvable");
-                    }
-                })
+                addValue(msg, parsedMsg, true);
+                break;
+            case 'less':
+                // <prefix>less <channel name> <nb points>
+                addValue(msg, parsedMsg, false);
                 break;
             case 'remove':
+                // <prefix>remove <channel name>
                 findChannelByName(parsedMsg[1]).then(data => {
                     removeChannelByName(parsedMsg[1]).then(() => {
                         msg.guild.channels.find(c => c.id === data.id).delete();
                     });
                     msg.channel.send(msgSuccess);
-                })
+                });
+                break;
+            case 'help':
+                msg.channel.send(msgHelp);
                 break;
             default:
                 msg.channel.send(msgErrorCommande);
@@ -67,7 +68,6 @@ bot.on('message', msg => {
 
 bot.login(token);
 
-// Example msg : +add <channel_name>
 function processMsg(rawMsg) {
     return new Promise(function (resolve, reject) {
         if (rawMsg.substring(0, 1) === prefix)
@@ -77,7 +77,28 @@ function processMsg(rawMsg) {
 
 function getOldScore(channelName) {
     channelName = channelName.substring(channelName.lastIndexOf(delimiter) + 1).trim();
-    return parseInt(channelName.match(/\d+/g)); // \d+ means 1or + digit (regex)
+    return parseInt(channelName.match(/\d+/g)); // \d+ means 1 or + digit (regex)
+}
+
+function addValue(msg, parsedMsg, isAddition) {
+    findChannelByName(parsedMsg[1]).then(data => {
+        if (data !== null) {
+            if (isNaN(parseInt(parsedMsg[2]))) {
+                msg.channel.send(msgErrorNumberFormat);
+                return;
+            }
+
+            var channel = msg.guild.channels.find(c => c.id === data.id);
+            if (isAddition)
+                channel.setName(data.name + delimiter + " " + parseInt(getOldScore(channel.name) + parseInt(parsedMsg[2])) + " pts");
+            else
+                channel.setName(data.name + delimiter + " " + parseInt(getOldScore(channel.name) - parseInt(parsedMsg[2])) + " pts");
+
+            msg.channel.send(msgSuccess)
+        } else {
+            msg.channel.send(msgErrorChannelNotFound);
+        }
+    });
 }
 
 function createChannel(serv, name) {
