@@ -94,7 +94,7 @@ function addValue(msg, parsedMsg, isAddition) {
             else
                 channel.setName(data.name + delimiter + " " + parseInt(getOldScore(channel.name) - parseInt(parsedMsg[2])) + " pts");
 
-            msg.channel.send(msgSuccess)
+            msg.channel.send(msgSuccess);
         } else {
             msg.channel.send(msgErrorChannelNotFound);
         }
